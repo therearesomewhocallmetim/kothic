@@ -11,7 +11,6 @@ VARIABLE = re.compile(r'^\s*(@(?!import).*?)\s*?:\s*?(.*?);', re.DOTALL | re.MUL
 BLOCK = re.compile(r'^\s*([^@{]*\{.*?\})', re.DOTALL | re.MULTILINE)
 
 
-
 class Preprocessor:
 
     def __init__(self, filepath):
@@ -23,15 +22,27 @@ class Preprocessor:
         self.filepath = realpath(filepath)
         self.base_folder = realpath(dirname(filepath))
 
+
+    def clean(self):
+        self.text = COMMENT.sub("", self.text)
+        self.text = IMPORT.sub("", self.text)
+        self.text = VARIABLE.sub("", self.text)
+        self.text = BLOCK.sub("", self.text)
+        self.text = re.sub("\s*", "", self.text)
+
+
     def process(self):
         self.readfile()
 
         self.text = COMMENT.sub("", self.text)
         self.process_variables()
         self.process_imports()
-        # self._print_vars()
-
         self.process_blocks()
+
+        self.clean()
+        if self.text:
+            logging.warning("Some text in the mapcss file couldn't be parsed:\n{}\n{}".format(self.filepath, self.text))
+
 
     def process_blocks(self):
         blocks = BLOCK.findall(self.text)
@@ -62,7 +73,8 @@ class Preprocessor:
     def merge_variables(self, other_variables):
         for key in other_variables:
             if key in self.variables:
-                logging.warning("Variable redeclaration, setting the new value: \n{}\nold: {}\nnew: {}\nFirst declared in {}".format(key, self.variables[key][0], other_variables[key][0], self.variables[key][1]))
+                logging.warning("Variable redeclaration, setting the new value: \n{}\nold: {}\nnew: {}\nFirst declared in {}\nRedeclared in {}"
+                                .format(key, self.variables[key][0], other_variables[key][0], self.variables[key][1], other_variables[key][1]))
             first_declared = other_variables[key][1] if key not in self.variables else self.variables[key][1]
             self.variables[key] = (other_variables[key][0], first_declared)
 
@@ -80,12 +92,6 @@ class Preprocessor:
         self.blocks = substituted_blocks
 
 
-
-
-
-
-
-
     def readfile(self):
         if not exists(self.filepath):
             logging.error("The file {file} doesn't exist!".format(file=self.filepath))
@@ -95,11 +101,8 @@ class Preprocessor:
             self.text = f.read()
 
 
-
-
 if __name__ == "__main__":
     prep = Preprocessor("../../testdata/clear/style-clear/test.mapcss")
-
     prep.process()
     prep.substitute_variables()
 
