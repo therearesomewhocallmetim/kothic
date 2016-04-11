@@ -15,7 +15,7 @@ class Preprocessor:
 
     def __init__(self, filepath):
         self.blocks = []
-        self.variables = dict()
+        self.variables = {}
         self.text = ""
         self.base_folder = ""
         self.blocks = []
@@ -101,10 +101,48 @@ class Preprocessor:
             self.text = f.read()
 
 
+
+BLOCK_SPLITTER = re.compile(r'([^@{]*)\s*\{(.*?)\}', re.DOTALL | re.MULTILINE)
+
+class BlockSplitter:
+
+    def __init__(self, preprocessed_blocks):
+        self.blocks = preprocessed_blocks
+        self.split_blocks = {} # selector : list of attributes
+
+    def clean_split_by(self, string, separator):
+        return filter(lambda x: x != "", map(lambda x: x.strip(), string.split(separator)))
+
+    def split_commas(self):
+
+        comma_split_blocs = {}
+        for block in self.blocks:
+            found = BLOCK_SPLITTER.findall(block)
+            for entry in found:
+                keys = self.clean_split_by(entry[0], ",")
+                attributes = self.clean_split_by(entry[1], ";")
+                for key in keys:
+                    if key in comma_split_blocs:
+                        comma_split_blocs[key].extend(attributes)
+                    else:
+                        comma_split_blocs[key] = attributes
+
+
+        print(comma_split_blocs)
+
+        pass
+
+
+
+
+
 if __name__ == "__main__":
     prep = Preprocessor("../../testdata/clear/style-clear/test.mapcss")
     prep.process()
     prep.substitute_variables()
+
+    block_splitter = BlockSplitter(prep.blocks)
+    block_splitter.split_commas()
 
 
 

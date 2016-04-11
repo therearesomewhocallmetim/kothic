@@ -120,7 +120,7 @@ def komap_mapswithme(options):
 
     # Get all mapcss dynamic tags from mapcss-dynamic.txt
     mapcss_dynamic_tags = set([line.rstrip() for line in open(os.path.join(ddir, 'mapcss-dynamic.txt'))])
-
+    # we can reuse the code above, we don't need to rewrite it. Just refactor it.
     # Parse style mapcss
     style = MapCSS(options.minzoom, options.maxzoom + 1)
     style.parse(filename = options.filename, static_tags = mapcss_static_tags, dynamic_tags = mapcss_dynamic_tags)
