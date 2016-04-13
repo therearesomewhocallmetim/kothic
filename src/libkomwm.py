@@ -82,10 +82,24 @@ def komap_mapswithme(options):
 
     cnt = 1
     for row in csv.reader(open(os.path.join(ddir, 'mapcss-mapping.csv')), delimiter=';'):
+        if len(row) <= 1:
+            # Allow for empty lines and comments that do not contain ';' symbol
+            continue
+        if len(row) == 3:
+            # Short format: type name, type id, x / replacement type name
+            tag = row[0].replace('|', '=')
+            obsolete = len(row[2].strip()) > 0
+            row = (row[0], '[{0}]'.format(tag), 'x' if obsolete else '', 'name', 'int_name', row[1], row[2] if row[2] != 'x' else '')
+        if len(row) != 7:
+            raise Exception('Expecting 3 or 7 columns in mapcss-mapping: {0}'.format(';'.join(row)))
+
+        if int(row[5]) < cnt:
+            raise Exception('Wrong type id: {0}'.format(';'.join(row)))
         while int(row[5]) > cnt:
             print >> types_file, "mapswithme"
             cnt += 1
         cnt += 1
+
         cl = row[0].replace("|", "-")
         pairs = [i.strip(']').split("=") for i in row[1].split(',')[0].split('[')]
         kv = {}
