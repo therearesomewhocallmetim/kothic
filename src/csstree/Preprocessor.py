@@ -13,7 +13,7 @@ BLOCK = re.compile(r'^\s*([^@{]*\{.*?\})', re.DOTALL | re.MULTILINE)
 
 class Preprocessor:
 
-    def __init__(self, filepath):
+    def __init__(self, filepath, is_recursive=False, write_to_file=False):
         self.blocks = []
         self.variables = {}
         self.text = ""
@@ -21,6 +21,8 @@ class Preprocessor:
         self.blocks = []
         self.filepath = realpath(filepath)
         self.base_folder = realpath(dirname(filepath))
+        self.is_recursive = is_recursive
+        self.write_to_file = write_to_file
 
 
     def clean(self):
@@ -43,6 +45,16 @@ class Preprocessor:
         if self.text:
             logging.warning("Some text in the mapcss file couldn't be parsed:\n{}\n{}".format(self.filepath, self.text))
 
+        if not self.is_recursive:
+            self.substitute_variables()
+
+        if self.write_to_file:
+            self.write()
+
+    def write(self):
+        with open("{}.preprocessed".format(self.filepath), "w") as out_file:
+            out_file.writelines(map(lambda x : "{}\n\n".format(x), self.blocks))
+
 
     def process_blocks(self):
         blocks = BLOCK.findall(self.text)
@@ -64,7 +76,7 @@ class Preprocessor:
     def process_imports(self):
         imports = IMPORT.findall(self.text)
         for imp in imports:
-            preprocessor = Preprocessor(realpath(join(self.base_folder, imp)))
+            preprocessor = Preprocessor(realpath(join(self.base_folder, imp)), is_recursive=True)
             preprocessor.process()
             self.blocks.extend(preprocessor.blocks)
             self.merge_variables(preprocessor.variables)
@@ -82,8 +94,12 @@ class Preprocessor:
     def substitute_variables(self):
         substituted_blocks = []
 
+        variable_keys = self.variables.keys()
+        variable_keys.sort(key=len, reverse=True) #reverse sort the var names by
+        # length so that we don't substitute parts of longer var names with values from vars with shorter names
+
         for block in self.blocks:
-            for var in self.variables:
+            for var in variable_keys:
                 block = block.replace(var, self.variables[var][0])
             substituted_blocks.append(block)
             if "@" in block:
@@ -99,51 +115,3 @@ class Preprocessor:
 
         with open(self.filepath) as f:
             self.text = f.read()
-
-
-
-BLOCK_SPLITTER = re.compile(r'([^@{]*)\s*\{(.*?)\}', re.DOTALL | re.MULTILINE)
-
-class BlockSplitter:
-
-    def __init__(self, preprocessed_blocks):
-        self.blocks = preprocessed_blocks
-        self.split_blocks = {} # selector : list of attributes
-
-    def clean_split_by(self, string, separator):
-        return filter(lambda x: x != "", map(lambda x: x.strip(), string.split(separator)))
-
-    def split_commas(self):
-
-        comma_split_blocs = {}
-        for block in self.blocks:
-            found = BLOCK_SPLITTER.findall(block)
-            for entry in found:
-                keys = self.clean_split_by(entry[0], ",")
-                attributes = self.clean_split_by(entry[1], ";")
-                for key in keys:
-                    if key in comma_split_blocs:
-                        comma_split_blocs[key].extend(attributes)
-                    else:
-                        comma_split_blocs[key] = attributes
-
-
-        print(comma_split_blocs)
-
-        pass
-
-
-
-
-
-if __name__ == "__main__":
-    prep = Preprocessor("../../testdata/clear/style-clear/test.mapcss")
-    prep.process()
-    prep.substitute_variables()
-
-    block_splitter = BlockSplitter(prep.blocks)
-    block_splitter.split_commas()
-
-
-
-

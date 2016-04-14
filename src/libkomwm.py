@@ -1,8 +1,12 @@
+from __future__ import print_function
+
 from mapcss import MapCSS
 from optparse import OptionParser
 import os
 import csv
 import sys
+import traceback
+
 import mapcss.webcolors
 whatever_to_hex = mapcss.webcolors.webcolors.whatever_to_hex
 whatever_to_cairo = mapcss.webcolors.webcolors.whatever_to_cairo
@@ -30,6 +34,7 @@ def to_boolean(s):
     else:
         return False, False # Invalid
 
+
 def mwm_encode_color(colors, st, prefix='', default='black'):
     if prefix:
         prefix += "-"
@@ -38,6 +43,7 @@ def mwm_encode_color(colors, st, prefix='', default='black'):
     result = int(opacity + color, 16)
     colors.add(result)
     return result
+
 
 def mwm_encode_image(st, prefix='icon', bgprefix='symbol'):
     if prefix:
@@ -50,67 +56,115 @@ def mwm_encode_image(st, prefix='icon', bgprefix='symbol'):
     handle = st.get(prefix + "image")[:-4]
     return handle, handle
 
-def komap_mapswithme(options):
-    ddir = os.path.dirname(options.outfile)
 
+def read_colors_file(filepath):
+    colors = set()
+    if os.path.exists(filepath):
+        with open(filepath) as color_file:
+                colors.update(map(lambda x: int(x), color_file))
+    return colors
+
+
+def append_pattern(patterns, to_append):
+    if to_append:
+        patterns.add(to_append)
+    return patterns
+
+
+def read_patterns_file(filepath):
+    patterns = set()
+    if os.path.exists(filepath):
+        with open(filepath, "r") as patterns_in_file:
+            for string_pattern in map(lambda x: x.split(), patterns_in_file):
+                patterns = append_pattern(patterns, tuple(map(lambda x: float(x), string_pattern)))
+
+    return patterns
+
+
+def parse_pair(pair):
+    """
+    Args:
+        pair: list of 1 or 2 elements from the mapccs-mapping.csv
+
+    Returns:
+        if the list contains 2 elements, returns {1st : 2nd}
+        if the list contains 1 element that starts with !, trips the ! and the ? from the key and returns : {1st : no}
+        if 1 element with no ! at the beginning, strips the ? from the key and returns: {1st : yes}
+
+    >>> parse_pair(["one", "two"])
+    {'one': 'two'}
+
+    >>> parse_pair(["!one"])
+    {'one': 'no'}
+
+    >>> parse_pair(["!one?"])
+    {'one': 'no'}
+
+    >>> parse_pair(["one?"])
+    {'one': 'yes'}
+    """
+    kv = {}
+    if len(pair) == 1:
+        if pair[0]:
+            if pair[0].startswith("!"):
+                key = pair[0][1:].strip('?')
+                kv[key] = "no"
+            else:
+                key = pair[0].strip('?')
+                kv[key] = "yes"
+    else:
+        kv[pair[0]] = pair[1]
+    return kv
+
+
+def read_class_hierarchy(ddir):
     classificator = {}
     class_order = []
     class_tree = {}
 
-    colors_file_name = os.path.join(ddir, 'colors.txt')
-    colors = set()
-    if os.path.exists(colors_file_name):
-        colors_in_file = open(colors_file_name, "r")
-        for colorLine in colors_in_file:
-            colors.add(int(colorLine))
-        colors_in_file.close()
-
-    patterns = []
-    def addPattern(dashes):
-        if dashes and dashes not in patterns:
-            patterns.append(dashes)
-
-    patterns_file_name = os.path.join(ddir, 'patterns.txt')
-    if os.path.exists(patterns_file_name):
-        patterns_in_file = open(patterns_file_name, "r")
-        for patternsLine in patterns_in_file:
-            addPattern([float(x) for x in patternsLine.split()])
-        patterns_in_file.close()
-
-    # Build classificator tree from mapcss-mapping.csv file
     types_file = open(os.path.join(ddir, 'types.txt'), "w")
 
     cnt = 1
     for row in csv.reader(open(os.path.join(ddir, 'mapcss-mapping.csv')), delimiter=';'):
         while int(row[5]) > cnt:
-            print >> types_file, "mapswithme"
+            print(types_file.name + " row 5 > cnt: {} > {}".format(row[5], cnt))
             cnt += 1
         cnt += 1
         cl = row[0].replace("|", "-")
         pairs = [i.strip(']').split("=") for i in row[1].split(',')[0].split('[')]
         kv = {}
-        for i in pairs:
-            if len(i) == 1:
-                if i[0]:
-                    if i[0][0] == "!":
-                        kv[i[0][1:].strip('?')] = "no"
-                    else:
-                        kv[i[0].strip('?')] = "yes"
-            else:
-                kv[i[0]] = i[1]
+        for pair in pairs:
+            kv.update(parse_pair(pair))
+
         classificator[cl] = kv
         if row[2] != "x":
             class_order.append(cl)
-            print >> types_file, row[0]
+            print("Appended {}".format(row[0]))
         else:
             # compatibility mode
             if row[6]:
-                print >> types_file, row[6]
+                print("Did not append {}, because {}".format(row[0], row[6]))
             else:
-                print >> types_file, "mapswithme"
+                print("Didn't append {}, col 6 doesnt exist".format(row[0]))
         class_tree[cl] = row[0]
     class_order.sort()
     types_file.close()
+    return class_order, class_tree, classificator
+
+
+def komap_mapswithme(options):
+    ddir = os.path.dirname(options.outfile)
+
+
+    # debug files. Not quite sure why we read them.
+    colors_file_name = os.path.join(ddir, "colors.txt")
+    colors = read_colors_file(colors_file_name)
+
+    patterns_file_name = os.path.join(ddir, 'patterns.txt')
+    patterns = read_patterns_file(patterns_file_name)
+
+    # Build classificator tree from mapcss-mapping.csv file
+    (class_order, class_tree, classificator) = read_class_hierarchy(ddir)
 
     # Get all mapcss static tags which are used in mapcss-mapping.csv
     mapcss_static_tags = set()
@@ -121,6 +175,7 @@ def komap_mapswithme(options):
     # Get all mapcss dynamic tags from mapcss-dynamic.txt
     mapcss_dynamic_tags = set([line.rstrip() for line in open(os.path.join(ddir, 'mapcss-dynamic.txt'))])
     # we can reuse the code above, we don't need to rewrite it. Just refactor it.
+
     # Parse style mapcss
     style = MapCSS(options.minzoom, options.maxzoom + 1)
     style.parse(filename = options.filename, static_tags = mapcss_static_tags, dynamic_tags = mapcss_dynamic_tags)
@@ -253,7 +308,7 @@ def komap_mapswithme(options):
                                 dr_line.priority = min(int(st.get('z-index', 0) + 999), 20000)
                             dashes = st.get('casing-dashes', st.get('dashes', []))
                             dr_line.dashdot.dd.extend(dashes)
-                            addPattern(dr_line.dashdot.dd)
+                            patterns = append_pattern(patterns, tuple(dr_line.dashdot.dd)) #debug thing
                             dr_line.cap = dr_linecaps.get(st.get('casing-linecap', 'butt'), BUTTCAP)
                             dr_line.join = dr_linejoins.get(st.get('casing-linejoin', 'round'), ROUNDJOIN)
                             dr_element.lines.extend([dr_line])
@@ -277,7 +332,7 @@ def komap_mapswithme(options):
                             dr_line.color = mwm_encode_color(colors, st)
                             for i in st.get('dashes', []):
                                 dr_line.dashdot.dd.extend([max(float(i), 1) * WIDTH_SCALE])
-                            addPattern(dr_line.dashdot.dd)
+                            patterns = append_pattern(patterns, tuple(dr_line.dashdot.dd)) #debug thing
                             dr_line.cap = dr_linecaps.get(st.get('linecap', 'butt'), BUTTCAP)
                             dr_line.join = dr_linejoins.get(st.get('linejoin', 'round'), ROUNDJOIN)
                             if '-x-me-line-priority' in st:
@@ -433,26 +488,32 @@ def komap_mapswithme(options):
     for k in viskeys:
         offset = "    " * (k.count("|") - 1)
         for i in range(len(oldoffset) / 4, len(offset) / 4, -1):
-            print >> visibility_file, "    " * i + "{}"
-            print >> classificator_file, "    " * i + "{}"
+            print(visibility_file.name + ("    " * i) + "{}")
+            print(classificator_file.name + ("    " * i) + "{}")
         oldoffset = offset
         end = "-"
         if k in visnodes:
             end = "+"
-        print >> visibility_file, offset + k.split("|")[-2] + "  " + visibility.get(k, "0" * (options.maxzoom + 1)) + "  " + end
-        print >> classificator_file, offset + k.split("|")[-2] + "  " + end
+        print(visibility_file.name + offset + k.split("|")[-2] + "  " + visibility.get(k, "0" * (options.maxzoom + 1)) + "  " + end)
+        print(classificator_file.name + offset + k.split("|")[-2] + "  " + end)
     for i in range(len(offset) / 4, 0, -1):
-        print >> visibility_file, "    " * i + "{}"
-        print >> classificator_file, "    " * i + "{}"
+        print(visibility_file.name + ("    " * i) + "{}")
+        print(classificator_file.name + ("    " * i) + "{}")
 
     visibility_file.close()
     classificator_file.close()
 
+# write debug files
+    write_colors_file(colors_file_name, colors)
+    write_patterns_file(patterns_file_name, patterns)
+
+def write_colors_file(colors_file_name, colors):
     colors_file = open(colors_file_name, "w")
     for c in sorted(colors):
         colors_file.write("%d\n" % (c))
     colors_file.close()
 
+def write_patterns_file(patterns_file_name, patterns):
     patterns_file = open(patterns_file_name, "w")
     for p in patterns:
         patterns_file.write("%s\n" % (' '.join(str(elem) for elem in p)))
@@ -461,6 +522,9 @@ def komap_mapswithme(options):
 # Main
 
 try:
+    # import doctest
+    # doctest.testmod()
+
     parser = OptionParser()
     parser.add_option("-s", "--stylesheet", dest="filename",
                       help="read MapCSS stylesheet from FILE", metavar="FILE")
@@ -486,5 +550,6 @@ try:
     exit(0)
 
 except Exception as e:
-    print >> sys.stderr, "Error\n" + str(e)
+    traceback.print_exc(e)
+    # print(sys.stderr, "Error\n" + str(e)
     exit(-1)
