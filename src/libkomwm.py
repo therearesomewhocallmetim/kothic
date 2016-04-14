@@ -80,12 +80,47 @@ def komap_mapswithme(options):
     # Build classificator tree from mapcss-mapping.csv file
     types_file = open(os.path.join(ddir, 'types.txt'), "w")
 
+    # Mapcss-mapping format
+    #
+    # A CSV table mapping tags to types. Some types can be deemed obsolete, either completely or replaced with a different type.
+    #
+    # Example row: highway|bus_stop;[highway=bus_stop];;name;int_name;22; (mind the last semicolon!)
+    # It contains:
+    # - type name: "highway|bus_stop" ('|' is converted to '-' internally)
+    # - mapcss selector for tags: "[highway=bus_stop]" (you can group selectors and use e.g. [oneway?])
+    # - "x" for an obsolete type or an empty cell otherwise
+    # - primary title tag (usually "name")
+    # - secondary title tag (usually "int_name")
+    # - type id, sequential starting from 1
+    # - replacement type for an obsolete tag, if exists
+    #
+    # A shorter format for above example: highway|bus_stop;22;
+    # It leaves only columns 1, 6 and 7. For obsolete types with no replacement put "x" into the last column.
+    # Obviously it works only for simple types that are produced from tags replacing '=' with '|'.
+    #
+    # An example of type with replacement:
+    # highway|unsurfaced|disused;[highway=unsurfaced][disused?];x;name;int_name;838;highway|unclassified
+
     cnt = 1
     for row in csv.reader(open(os.path.join(ddir, 'mapcss-mapping.csv')), delimiter=';'):
+        if len(row) <= 1:
+            # Allow for empty lines and comments that do not contain ';' symbol
+            continue
+        if len(row) == 3:
+            # Short format: type name, type id, x / replacement type name
+            tag = row[0].replace('|', '=')
+            obsolete = len(row[2].strip()) > 0
+            row = (row[0], '[{0}]'.format(tag), 'x' if obsolete else '', 'name', 'int_name', row[1], row[2] if row[2] != 'x' else '')
+        if len(row) != 7:
+            raise Exception('Expecting 3 or 7 columns in mapcss-mapping: {0}'.format(';'.join(row)))
+
+        if int(row[5]) < cnt:
+            raise Exception('Wrong type id: {0}'.format(';'.join(row)))
         while int(row[5]) > cnt:
             print >> types_file, "mapswithme"
             cnt += 1
         cnt += 1
+
         cl = row[0].replace("|", "-")
         pairs = [i.strip(']').split("=") for i in row[1].split(',')[0].split('[')]
         kv = {}
