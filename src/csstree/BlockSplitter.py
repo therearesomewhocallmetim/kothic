@@ -145,24 +145,15 @@ class BlockSplitter:
                         resulting_tag = "{}{}{}".format(element.tag, sorted(element.selectors), subclass)
                         # print("{} -> {}".format(resulting_tag, attrs))
                         if resulting_tag in self.blocks_by_zoom_level[element.zoom]:
+
+                            # to remove soon
+                            for a in attributes:
+                                if a in self.blocks_by_zoom_level[element.zoom][resulting_tag]:
+                                    print("Duplicate attribute {} for tag {} on zoom {}".format(a, resulting_tag, element.zoom))
+
                             self.blocks_by_zoom_level[element.zoom][resulting_tag].extend(attributes)
                         else:
                             self.blocks_by_zoom_level[element.zoom][resulting_tag] = attributes
-                   #     # print("{}::{}{}".format(element.tag, element.subclass, element.selectors))
-                     #   # print("{} ::: {}".format(element, attributes))
-
-        # exit(2)
-
-    # def sort_selectors(self, selectors):
-    #     # found = ONE_SELECTOR_RE.findall(selectors)
-    #     # if not found:
-    #     #     return ""
-    #     if not selectors:
-    #         return []
-    #
-    #     return "".join(map(lambda x: "[{}]".format(x), sorted(found)))
-
-
 
 
     def old_write(self):

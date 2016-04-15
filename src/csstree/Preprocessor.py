@@ -10,7 +10,9 @@ COMMENT = re.compile(r'/\*.*?\*/', re.DOTALL)
 VARIABLE = re.compile(r'^\s*(@(?!import).*?)\s*?:\s*?(.*?);', re.DOTALL | re.MULTILINE)
 BLOCK = re.compile(r'^\s*([^@{]*\{.*?\})', re.DOTALL | re.MULTILINE)
 
-
+"""
+We also need to remember where a certain block comes from so that we could warn about duplicate declarations
+"""
 class Preprocessor:
 
     def __init__(self, filepath, is_recursive=False, write_to_file=False):
