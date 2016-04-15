@@ -15,16 +15,17 @@ We also need to remember where a certain block comes from so that we could warn 
 """
 class Preprocessor:
 
-    def __init__(self, filepath, is_recursive=False, write_to_file=False):
+    def __init__(self, filepath, is_recursive=False, write_to_file=False, already_imported=[]):
         self.blocks = []
         self.variables = {}
         self.text = ""
         self.base_folder = ""
-        self.blocks = []
+        self.blocks = [] # list of tuples (block, imported_from_url)
         self.filepath = realpath(filepath)
         self.base_folder = realpath(dirname(filepath))
         self.is_recursive = is_recursive
         self.write_to_file = write_to_file
+        self.already_imported = already_imported
 
 
     def clean(self):
@@ -55,13 +56,13 @@ class Preprocessor:
 
     def write(self):
         with open("{}.preprocessed".format(self.filepath), "w") as out_file:
-            out_file.writelines(map(lambda x : "{}\n\n".format(x), self.blocks))
+            out_file.writelines(map(lambda x : "{} /* {} */\n\n".format(x[0], x[1]), self.blocks))
 
 
     def process_blocks(self):
         blocks = BLOCK.findall(self.text)
         for b in blocks:
-            self.blocks.append(re.sub("\s+", " ", b))
+            self.blocks.append((re.sub("\s+", " ", b), self.filepath))
 
 
     def _print_vars(self):
@@ -78,10 +79,15 @@ class Preprocessor:
     def process_imports(self):
         imports = IMPORT.findall(self.text)
         for imp in imports:
-            preprocessor = Preprocessor(realpath(join(self.base_folder, imp)), is_recursive=True)
+            imp_path = realpath(join(self.base_folder, imp))
+            if imp_path in self.already_imported:
+                continue
+            preprocessor = Preprocessor(imp_path, is_recursive=True, already_imported=self.already_imported)
             preprocessor.process()
             self.blocks.extend(preprocessor.blocks)
             self.merge_variables(preprocessor.variables)
+            self.already_imported.append(imp_path)
+            self.already_imported.extend(preprocessor.already_imported)
 
 
     def merge_variables(self, other_variables):
@@ -100,10 +106,10 @@ class Preprocessor:
         variable_keys.sort(key=len, reverse=True) #reverse sort the var names by
         # length so that we don't substitute parts of longer var names with values from vars with shorter names
 
-        for block in self.blocks:
+        for block, imported_from in self.blocks:
             for var in variable_keys:
                 block = block.replace(var, self.variables[var][0])
-            substituted_blocks.append(block)
+            substituted_blocks.append((block, imported_from))
             if "@" in block:
                 logging.warning("Unbound variable found in block {}".format(block))
 

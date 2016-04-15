@@ -128,42 +128,46 @@ class BlockSplitter:
         return ret
 
 
+    # to be refactored
     def split_commas(self):
-        for block in self.blocks:
+        for block, imported_from in self.blocks:
             found = BLOCK_SPLITTER.findall(block)
             for entry in found:
                 keys = self.clean_split_by(entry[0], ",")
-                attributes = self.clean_split_by(entry[1], ";")
+                attributes = sorted(self.clean_split_by(entry[1], ";"))
+
+                last_attr = ""
+                clean_attributes = []
+                for a in attributes:
+                    if a == last_attr:
+                        logging.warning("Duplicate attribute {} for tag/zoom {} imported from  {}".format(a, keys, imported_from))
+                        continue
+                    clean_attributes.append(a)
+
+
 
                 for key in keys:
                     elements = self.css_key_factory(key)
-                    attrs = []
+
                     for element in elements:
-                        attrs.extend(attributes)
-                        # subclass = "{}"
                         subclass = "::{}".format(element.subclass) if element.subclass else ""
-                        resulting_tag = "{}{}{}".format(element.tag, sorted(element.selectors), subclass)
-                        # print("{} -> {}".format(resulting_tag, attrs))
+                        resulting_tag = "{}{}{}".format(element.tag, "".join(sorted(element.selectors)), subclass)
+
                         if resulting_tag in self.blocks_by_zoom_level[element.zoom]:
-
-                            # to remove soon
-                            for a in attributes:
+                            filtered_attributes = []
+                            for a in clean_attributes:
                                 if a in self.blocks_by_zoom_level[element.zoom][resulting_tag]:
-                                    print("Duplicate attribute {} for tag {} on zoom {}".format(a, resulting_tag, element.zoom))
+                                    print("Duplicate attribute {} for tag {} on zoom {} imported from {}".format(a, resulting_tag, element.zoom, imported_from))
+                                else:
+                                    filtered_attributes.append(a)
 
-                            self.blocks_by_zoom_level[element.zoom][resulting_tag].extend(attributes)
+                            self.blocks_by_zoom_level[element.zoom][resulting_tag].update(self.map_attrs_to_import_source(filtered_attributes, imported_from))
                         else:
-                            self.blocks_by_zoom_level[element.zoom][resulting_tag] = attributes
+                            self.blocks_by_zoom_level[element.zoom][resulting_tag] = self.map_attrs_to_import_source(clean_attributes, imported_from)
 
 
-    def old_write(self):
-        print("Writing split blocks, num blocks {}".format(len(self.split_blocks)))
-        with open("../../out/split_by_commas.mapcss", "w") as out_file:
-            for block in self.split_blocks:
-                out_file.write("{} {{\n".format(block))
-                for attr in self.split_blocks[block]:
-                    out_file.write("    {};\n".format(attr))
-                out_file.write("}\n\n")
+    def map_attrs_to_import_source(self, attributes, imported_from):
+        return dict(map(lambda x: (x, imported_from), attributes))
 
 
     def write(self):
@@ -177,7 +181,7 @@ class BlockSplitter:
                 for tag, attrs in blocks:
                     out_file.write("{} {{\n".format(tag))
                     for attr in attrs:
-                        out_file.write("    {};\n".format(attr))
+                        out_file.write("    {}; /* == {} == */\n".format(attr, attrs[attr]))
                     # out_file.write(attrs)
                     out_file.write("}\n\n")
 
