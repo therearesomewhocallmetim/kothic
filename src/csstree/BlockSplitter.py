@@ -3,7 +3,10 @@ import re
 import logging
 import logging_config #to configure logging, no calls needed
 from CssTree.CssElement import CssElement
+from collections import namedtuple
+from Util import StringWithSource
 
+Block = namedtuple("Block", "name attrs")
 
 
 MIN_ZOOM = 1
@@ -29,12 +32,9 @@ class BlockSplitter:
     Should also be initializeable by a preprocessed file
     """
     def __init__(self, preprocessed_blocks, write_to_file=False):
-        print("Num of input blocks is: {}".format(len(preprocessed_blocks)))
         self.blocks = preprocessed_blocks
-        self.split_blocks = {} # selector : list of attributes
         self.write_to_file = write_to_file
         self.blocks_by_zoom_level = self.init_blocks_by_zoom_level()
-        print("Will write to file! {}".format(self.write_to_file))
 
 
     def init_blocks_by_zoom_level(self):
@@ -52,24 +52,40 @@ class BlockSplitter:
             self.write()
             pass
 
+
     def process_blocks_by_zoom_level(self):
         for zoom in self.blocks_by_zoom_level:
             self.process_zoom_level(zoom, self.blocks_by_zoom_level[zoom])
 
+
+
     def process_zoom_level(self, zoom, block):
-        clean_block = [] # another list of tuples
+        clean_block = {}
         block_keys = sorted(block.keys())
-        # block.sort(key=lambda x: x[1]) #sort the tuples by the 0th element
-        old_block = ("", [])
+        old_block = Block("", [])
         for tag in block_keys:
             attrs = block[tag]
-            if tag == old_block[0] :
-                old_block[1].extend(attrs)
+            if tag == old_block.name:
+                old_block.attrs.extend(attrs)
             else:
-                if old_block[0]:
-                    clean_block.append(old_block)
-                old_block = (tag, attrs)
+                if old_block.name:
+                    clean_block[old_block.name] = self.parse_attributes(old_block.attrs, tag, zoom)
+                old_block = Block(tag, attrs)
         self.blocks_by_zoom_level[zoom] = clean_block
+
+
+    def parse_attributes(self, list_of_attrs, tag, zoom):
+        ret = {} #attribute : StringWithSource(value, imported_from)
+        for attr, source in list_of_attrs.iteritems():
+            try:
+                key, val = map(str.strip, attr.split(":"))
+            except:
+                print("attr[0] is {}".format(attr))
+            if key in ret:
+                logging.warning("Duplicate value for attribute {} ({}) for tag {} on zoom {}. First declared in {}".format(key, val, tag, zoom, ret[key].source))
+
+            ret[key] = StringWithSource(val, source)
+        return ret
 
 
     def clean_split_by(self, string, separator):
@@ -107,8 +123,6 @@ class BlockSplitter:
         return ret
 
 
-
-
     def split_keys_by_zoom(self, keys):
         ret = []
         for key in keys:
@@ -118,7 +132,7 @@ class BlockSplitter:
                 continue
             parts = parts_list[0]
             if parts:
-                selector, zoom = parts[0], (parts[1] if not parts else parts[1][2:])
+                selector, zoom = parts[0], (parts[1] if not parts else parts[1][2:]) # FIXME does this condition work because we have if parts above
                 print(">>>> {} : {}".format(selector, zoom))
                 all_zooms = self.all_zooms_in_css_range(zoom)
                 ret.append(map(lambda x: (selector, x), all_zooms))
@@ -128,38 +142,47 @@ class BlockSplitter:
         return ret
 
 
+    def clean_up_attribute_block(self, attributes, key, imported_from):
+        last_attr = ""
+        clean_attributes = []
+        for a in attributes:
+            if a == last_attr:
+                logging.warning(
+                    "Duplicate attribute {} for tag/zoom {} imported from  {}".format(a, key, imported_from))
+                continue
+            clean_attributes.append(a)
+        return clean_attributes
+
+
+    def filter_attributes_against_processed(self, clean_attributes, zoom, resulting_tag, imported_from):
+        filtered_attributes = []
+        for a in clean_attributes:
+            if a in self.blocks_by_zoom_level[zoom][resulting_tag]:
+                print("Duplicate attribute {} for tag {} on zoom {} imported from {}".format(a, resulting_tag, zoom, imported_from))
+            else:
+                filtered_attributes.append(a)
+        return filtered_attributes
+
     # to be refactored
     def split_commas(self):
         for block, imported_from in self.blocks:
             found = BLOCK_SPLITTER.findall(block)
             for entry in found:
                 keys = self.clean_split_by(entry[0], ",")
-                attributes = sorted(self.clean_split_by(entry[1], ";"))
+                attributes = sorted(self.clean_split_by(entry[1], ";")) #TODO attributes should also be a dictionary
 
-                last_attr = ""
-                clean_attributes = []
-                for a in attributes:
-                    if a == last_attr:
-                        logging.warning("Duplicate attribute {} for tag/zoom {} imported from  {}".format(a, keys, imported_from))
-                        continue
-                    clean_attributes.append(a)
-
-
+                clean_attributes = self.clean_up_attribute_block(attributes, entry[0], imported_from)
 
                 for key in keys:
                     elements = self.css_key_factory(key)
 
                     for element in elements:
                         subclass = "::{}".format(element.subclass) if element.subclass else ""
+                        # TODO Make TAG a separate type
                         resulting_tag = "{}{}{}".format(element.tag, "".join(sorted(element.selectors)), subclass)
 
                         if resulting_tag in self.blocks_by_zoom_level[element.zoom]:
-                            filtered_attributes = []
-                            for a in clean_attributes:
-                                if a in self.blocks_by_zoom_level[element.zoom][resulting_tag]:
-                                    print("Duplicate attribute {} for tag {} on zoom {} imported from {}".format(a, resulting_tag, element.zoom, imported_from))
-                                else:
-                                    filtered_attributes.append(a)
+                            filtered_attributes = self.filter_attributes_against_processed(clean_attributes, element.zoom, resulting_tag, imported_from)
 
                             self.blocks_by_zoom_level[element.zoom][resulting_tag].update(self.map_attrs_to_import_source(filtered_attributes, imported_from))
                         else:
@@ -178,10 +201,10 @@ class BlockSplitter:
             # for zoom, blocks in self.blocks_by_zoom_level:
                 out_file.write("   /* ===== ZOOM {} ===== */\n\n".format(zoom))
 
-                for tag, attrs in blocks:
+                for tag, attrs in blocks.iteritems():
                     out_file.write("{} {{\n".format(tag))
                     for attr in attrs:
-                        out_file.write("    {}; /* == {} == */\n".format(attr, attrs[attr]))
+                        out_file.write("    {}: {}; /* == {} == */\n".format(attr, attrs[attr].string, attrs[attr].source))
                     # out_file.write(attrs)
                     out_file.write("}\n\n")
 
@@ -209,7 +232,6 @@ class BlockSplitter:
         all_zooms = self.all_zooms_in_css_range(zoom)
         ret = map(lambda z: CssElement(tag, z, selectors_list, subclass), all_zooms)
         return ret
-
 
 
 

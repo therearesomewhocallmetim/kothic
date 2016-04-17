@@ -4,6 +4,7 @@ import logging
 import re
 import logging_config # Used to configure logging, you don't have to call anything from it.
 from os.path import dirname, realpath, join
+from Util import StringWithSource
 
 IMPORT = re.compile(r'^\s*?@import\s*?\(\s*?\"(.*?)\"\s*?\)\s*?;', re.DOTALL | re.MULTILINE)
 COMMENT = re.compile(r'/\*.*?\*/', re.DOTALL)
@@ -67,13 +68,16 @@ class Preprocessor:
 
     def _print_vars(self):
         for var in self.variables:
-            print("~{} : {} ({})".format(var, self.variables[var][0], self.variables[var][1]))
+            print("~{} : {} ({})".format(var, self.variables[var].string, self.variables[var].source))
         print("Finished vars")
+
+
 
     def process_variables(self):
         variables = VARIABLE.findall(self.text)
         for var in variables:
-            self.variables[var[0].strip()] = (var[1].strip(), self.filepath)
+            #self.variables[var[0].strip()] = (var[1].strip(), self.filepath)
+            self.variables[var[0].strip()] = StringWithSource(var[1].strip(), self.filepath)
 
 
     def process_imports(self):
@@ -94,9 +98,9 @@ class Preprocessor:
         for key in other_variables:
             if key in self.variables:
                 logging.warning("Variable redeclaration, setting the new value: \n{}\nold: {}\nnew: {}\nFirst declared in {}\nRedeclared in {}"
-                                .format(key, self.variables[key][0], other_variables[key][0], self.variables[key][1], other_variables[key][1]))
-            first_declared = other_variables[key][1] if key not in self.variables else self.variables[key][1]
-            self.variables[key] = (other_variables[key][0], first_declared)
+                                .format(key, self.variables[key].string, other_variables[key].string, self.variables[key].source, other_variables[key].source))
+            first_declared = other_variables[key].source if key not in self.variables else self.variables[key].source
+            self.variables[key] = StringWithSource(other_variables[key].string, first_declared)
 
 
     def substitute_variables(self):
@@ -108,7 +112,7 @@ class Preprocessor:
 
         for block, imported_from in self.blocks:
             for var in variable_keys:
-                block = block.replace(var, self.variables[var][0])
+                block = block.replace(var, self.variables[var].string)
             substituted_blocks.append((block, imported_from))
             if "@" in block:
                 logging.warning("Unbound variable found in block {}".format(block))
