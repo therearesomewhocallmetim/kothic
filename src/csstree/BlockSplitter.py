@@ -58,7 +58,6 @@ class BlockSplitter:
             self.process_zoom_level(zoom, self.blocks_by_zoom_level[zoom])
 
 
-
     def process_zoom_level(self, zoom, block):
         clean_block = {}
         block_keys = sorted(block.keys())
@@ -77,10 +76,7 @@ class BlockSplitter:
     def parse_attributes(self, list_of_attrs, tag, zoom):
         ret = {} #attribute : StringWithSource(value, imported_from)
         for attr, source in list_of_attrs.iteritems():
-            try:
-                key, val = map(str.strip, attr.split(":"))
-            except:
-                print("attr[0] is {}".format(attr))
+            key, val = map(str.strip, attr.split(":", 1))
             if key in ret:
                 logging.warning("Duplicate value for attribute {} ({}) for tag {} on zoom {}. First declared in {}".format(key, val, tag, zoom, ret[key].source))
 
@@ -154,16 +150,16 @@ class BlockSplitter:
         return clean_attributes
 
 
-    def filter_attributes_against_processed(self, clean_attributes, zoom, resulting_tag, imported_from):
+    def filter_attributes_against_processed(self, clean_attributes, element, imported_from):
         filtered_attributes = []
         for a in clean_attributes:
-            if a in self.blocks_by_zoom_level[zoom][resulting_tag]:
-                print("Duplicate attribute {} for tag {} on zoom {} imported from {}".format(a, resulting_tag, zoom, imported_from))
+            if a in self.blocks_by_zoom_level[element.zoom][element]:
+                print("Duplicate attribute {} for tag {} imported from {}".format(a, element, imported_from))
             else:
                 filtered_attributes.append(a)
         return filtered_attributes
 
-    # to be refactored
+
     def split_commas(self):
         for block, imported_from in self.blocks:
             found = BLOCK_SPLITTER.findall(block)
@@ -177,16 +173,11 @@ class BlockSplitter:
                     elements = self.css_key_factory(key)
 
                     for element in elements:
-                        subclass = "::{}".format(element.subclass) if element.subclass else ""
-                        # TODO Make TAG a separate type
-                        resulting_tag = "{}{}{}".format(element.tag, "".join(sorted(element.selectors)), subclass)
-
-                        if resulting_tag in self.blocks_by_zoom_level[element.zoom]:
-                            filtered_attributes = self.filter_attributes_against_processed(clean_attributes, element.zoom, resulting_tag, imported_from)
-
-                            self.blocks_by_zoom_level[element.zoom][resulting_tag].update(self.map_attrs_to_import_source(filtered_attributes, imported_from))
+                        if element in self.blocks_by_zoom_level[element.zoom]:
+                            filtered_attributes = self.filter_attributes_against_processed(clean_attributes, element, imported_from)
+                            self.blocks_by_zoom_level[element.zoom][element].update(self.map_attrs_to_import_source(filtered_attributes, imported_from))
                         else:
-                            self.blocks_by_zoom_level[element.zoom][resulting_tag] = self.map_attrs_to_import_source(clean_attributes, imported_from)
+                            self.blocks_by_zoom_level[element.zoom][element] = self.map_attrs_to_import_source(clean_attributes, imported_from)
 
 
     def map_attrs_to_import_source(self, attributes, imported_from):
@@ -217,11 +208,7 @@ class BlockSplitter:
         zoom_list = ZOOM_RE.findall(str_key)
         zoom = zoom_list[0] if zoom_list else ""
 
-        # if "][" in str_key:
-        #     print("Str key contains ][")
-
         selectors_list = SELECTORS_RE.findall(str_key)
-        # selectors = selectors_list[0] if selectors_list else ""
 
         str_key = TAG_RE.sub("", str_key)
         str_key = ZOOM_RE.sub("", str_key)
