@@ -16,3 +16,15 @@ if __name__ == "__main__":
 
     block_splitter = BlockSplitter(prep.blocks, write_to_file=True)
     block_splitter.process()
+
+
+    # for zoom in block_splitter.blocks_by_zoom_level:
+    #     print("Zoom {}".format(zoom))
+    #     selectors = map(lambda x: x.selectors, block_splitter.blocks_by_zoom_level[zoom])
+    #     selectors = sorted(selectors, key=len)
+    #     # for block in block_splitter.blocks_by_zoom_level[zoom]:
+    #         # selectors = sorted(block.selectors, key = lambda x: len(x))
+    #     for selector in selectors:
+    #         print("> {}".format(selector))
+
+    print("hello")

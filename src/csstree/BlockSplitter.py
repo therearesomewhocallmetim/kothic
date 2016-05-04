@@ -6,6 +6,8 @@ from CssTree.CssElement import CssElement
 from collections import namedtuple
 from Util import StringWithSource
 
+#When we iterate over the selectors, we might count the frequencty of selector per tag and then use that info when creating the tree.
+
 Block = namedtuple("Block", "name attrs")
 
 
@@ -35,6 +37,8 @@ class BlockSplitter:
         self.blocks = preprocessed_blocks
         self.write_to_file = write_to_file
         self.blocks_by_zoom_level = self.init_blocks_by_zoom_level()
+        self.selector_counters_by_zoom_level = dict(zip([i for i in range(MIN_ZOOM, MAX_ZOOM + 1)], [AttributeFrequencyCounter() for i in range(MIN_ZOOM, MAX_ZOOM + 1)]))
+        print("")
 
 
     def init_blocks_by_zoom_level(self):
@@ -171,13 +175,21 @@ class BlockSplitter:
 
                 for key in keys:
                     elements = self.css_key_factory(key)
+                    self.add_elements_to_zoom_level(elements, clean_attributes, imported_from)
 
-                    for element in elements:
-                        if element in self.blocks_by_zoom_level[element.zoom]:
-                            filtered_attributes = self.filter_attributes_against_processed(clean_attributes, element, imported_from)
-                            self.blocks_by_zoom_level[element.zoom][element].update(self.map_attrs_to_import_source(filtered_attributes, imported_from))
-                        else:
-                            self.blocks_by_zoom_level[element.zoom][element] = self.map_attrs_to_import_source(clean_attributes, imported_from)
+
+    def add_elements_to_zoom_level(self, elements, clean_attributes, imported_from):
+        for element in elements:
+            if element in self.blocks_by_zoom_level[element.zoom]:
+                filtered_attributes = self.filter_attributes_against_processed(clean_attributes, element, imported_from)
+                self.blocks_by_zoom_level[element.zoom][element].update(self.map_attrs_to_import_source(filtered_attributes, imported_from))
+            else:
+                self.blocks_by_zoom_level[element.zoom][element] = self.map_attrs_to_import_source(clean_attributes, imported_from)
+
+            #add to the frequency counter:
+            self.selector_counters_by_zoom_level[element.zoom].add_all(element.selectors)
+
+
 
 
     def map_attrs_to_import_source(self, attributes, imported_from):
@@ -191,8 +203,11 @@ class BlockSplitter:
                 blocks = self.blocks_by_zoom_level[zoom]
             # for zoom, blocks in self.blocks_by_zoom_level:
                 out_file.write("   /* ===== ZOOM {} ===== */\n\n".format(zoom))
-
-                for tag, attrs in blocks.iteritems():
+                keys = blocks.keys()
+                keys.sort(key=lambda x : x.tag)
+                for tag in keys:
+                    tag.selectors = self.selector_counters_by_zoom_level[zoom].sort_list_using_frequencies(tag.selectors)
+                    attrs = blocks[tag]
                     out_file.write("{} {{\n".format(tag))
                     for attr in attrs:
                         out_file.write("    {}: {}; /* == {} == */\n".format(attr, attrs[attr].string, attrs[attr].source))
@@ -221,10 +236,87 @@ class BlockSplitter:
         return ret
 
 
+class AttributeFrequencyCounter:
+    """
+    The idea is that we should count which pairs are the most numerous, and which element of those pairs are.
+    """
+
+    def __init__(self):
+        self.pairs = {}
+
+
+    def __getitem__(self, item):
+        return self.pairs[item]
+
+
+    def add(self, one, two):
+        self._add_pair(one, two)
+        self._add_pair(two, one)
+
+
+    def __contains__(self, item):
+        return item in self.pairs
+
+
+    def sort_list_using_frequencies(self, selector_list):
+        tuples = sorted(map(lambda x: (len(self[x]) if x in self else 0, x), selector_list), key=lambda x: (x[0], x[1]), reverse=True)
+        return map(lambda x: x[1], tuples)
+        # for tu in tuples:
+        #     print(">> {}".format(tu))
+        #
+        # pass
+
+
+    def add_all(self, list_of_items):
+        i = 1
+        for one in list_of_items:
+            if i >= len(list_of_items):
+                break
+            for two in list_of_items[i:]:
+                self.add(one, two)
+            i += 1
+
+
+
+    def _add_pair(self, one, two):
+        if one in self.pairs:
+            self.pairs[one].add_subnode(two)
+        else:
+            self.pairs[one] = AttributeFrequencyCounter.CounterNode(two)
+
+
+    class CounterNode:
+        def __init__(self, subnode):
+            self.subnodes = {} #dictionary of subnodes. Selector to count
+            self.length = 0
+            self.add_subnode(subnode)
+
+
+        def add_subnode(self, selector):
+            if selector in self.subnodes:
+                self.subnodes[selector] += 1
+            else:
+                self.subnodes[selector] = 1
+            self.length += 1
+
+        def __len__(self):
+            return self.length
+
 
 
 
 if __name__ == "__main__":
+    a = AttributeFrequencyCounter()
+    # a.add("a", "b")
+    # a.add("b", "c")
+    # a.add("b", "a")
+    a.add_all(["one", "two", "three"])
+    a.add_all(["two", "three", "four"])
+
+    print(len(a["two"]))
+    a.sort_list_using_frequencies(["four", "one", "three", "two", "six"])
+
+
     blockSplitter = BlockSplitter([])
     # print(blockSplitter.all_zooms_in_css_range("10"))
     # print(blockSplitter.all_zooms_in_css_range("10-"))
@@ -238,5 +330,5 @@ if __name__ == "__main__":
     # print(blockSplitter.split_key_by_components("line|z5[highway=world_level]"))
     # print(blockSplitter.css_key_factory("line|z17-18[highway=footway][tunnel?]::tunnelBackground"))
 
-
+    pass
 
