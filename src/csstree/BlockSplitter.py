@@ -54,7 +54,6 @@ class BlockSplitter:
 
         if self.write_to_file:
             self.write()
-            pass
 
 
     def process_blocks_by_zoom_level(self):
@@ -169,7 +168,7 @@ class BlockSplitter:
             found = BLOCK_SPLITTER.findall(block)
             for entry in found:
                 keys = self.clean_split_by(entry[0], ",")
-                attributes = sorted(self.clean_split_by(entry[1], ";")) #TODO attributes should also be a dictionary
+                attributes = sorted(self.clean_split_by(entry[1], ";")) #TODO attributes should also be a dictionary. Or should they?
 
                 clean_attributes = self.clean_up_attribute_block(attributes, entry[0], imported_from)
 
@@ -185,11 +184,11 @@ class BlockSplitter:
                 self.blocks_by_zoom_level[element.zoom][element].update(self.map_attrs_to_import_source(filtered_attributes, imported_from))
             else:
                 self.blocks_by_zoom_level[element.zoom][element] = self.map_attrs_to_import_source(clean_attributes, imported_from)
-
-            #add to the frequency counter:
-            self.selector_counters_by_zoom_level[element.zoom].add_all(element.selectors)
+                self.add_to_frequency_counter(element)
 
 
+    def add_to_frequency_counter(self, element):
+        self.selector_counters_by_zoom_level[element.zoom].add_all(element.selectors)
 
 
     def map_attrs_to_import_source(self, attributes, imported_from):
@@ -261,10 +260,6 @@ class AttributeFrequencyCounter:
     def sort_list_using_frequencies(self, selector_list):
         tuples = sorted(map(lambda x: (len(self[x]) if x in self else 0, x), selector_list), key=lambda x: (x[0], x[1]), reverse=True)
         return map(lambda x: x[1], tuples)
-        # for tu in tuples:
-        #     print(">> {}".format(tu))
-        #
-        # pass
 
 
     def add_all(self, list_of_items):
@@ -275,7 +270,6 @@ class AttributeFrequencyCounter:
             for two in list_of_items[i:]:
                 self.add(one, two)
             i += 1
-
 
 
     def _add_pair(self, one, two):
@@ -301,8 +295,6 @@ class AttributeFrequencyCounter:
 
         def __len__(self):
             return self.length
-
-
 
 
 if __name__ == "__main__":

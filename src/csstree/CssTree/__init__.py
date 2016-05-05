@@ -14,9 +14,9 @@ class CssTree:
 
         pass
 
+
     def add(self, csselement):
         self.subtrees_by_zoom[csselement.zoom].add(csselement)
-        a = CssElement("a", "b", "c", "d")
 
 
 
