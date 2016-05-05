@@ -15,15 +15,16 @@ class CssTree:
         pass
 
 
-    def add(self, csselement):
-        self.subtrees_by_zoom[csselement.zoom].add(csselement)
+    def add(self, node):
+        self.subtrees_by_zoom[node.element.zoom].add(node)
 
 
 
 
 class CssSubtree:
     def __init__(self):
-        self.branches_by_tag = {}
+        # self.branches_by_tag = {}
+        self.root = CssNode(None, None, root=True)
         pass
 
     def add_all(self, blocks):
@@ -33,77 +34,75 @@ class CssSubtree:
 
 
     def add(self, node):
-        if node.element.tag not in self.branches_by_tag:
-            self.branches_by_tag[node.element.tag] = node
-            return True
-
-        if node.can_adopt(self.branches_by_tag[node.element.tag]):
-            node.add(self.branches_by_tag[node.element.tag])
-            self.branches_by_tag[node.element.tag] = node
-            return True
-
-        return self.branches_by_tag[node.element.tag].add(node)
+        return self.root.add(node)
+        # if node.element.tag not in self.branches_by_tag:
+        #     self.branches_by_tag[node.element.tag] = node
+        #     return True
+        #
+        # if node.can_adopt(self.branches_by_tag[node.element.tag]):
+        #     node.add(self.branches_by_tag[node.element.tag])
+        #     self.branches_by_tag[node.element.tag] = node
+        #     return True
+        #
+        # return self.branches_by_tag[node.element.tag].add(node)
 
     def __repr__(self):
-        ret = []
-        for tag in self.branches_by_tag:
-            ret.append(str(self.branches_by_tag[tag]))
-        return "\n".join(ret)
-
-
+        return str(self.root.element)
+        # ret = []
+        # for tag in self.branches_by_tag:
+        #     ret.append(str(self.branches_by_tag[tag]))
+        # return "\n".join(ret)
 
 
 class CssNode:
-    def __init__(self, element, styles):
-        self.children = [] #list of nodes
-        self.element = element #CssElement
-        self.parent = None #if parent is none, i am root.
-        self.styles = styles # must be StringWithSource
-        pass
+    def __init__(self, element, styles, root=False):
+        self.children = []
+        self.element = element
+        self.styles = styles # {<str>: <StringWithSource>}
+        self.parent = None
+        self.am_root = root
+
+    def is_root(self):
+        return self.am_root
 
     def can_adopt(self, node):
-        # or self.element.subclass != node.element.subclass \
-        if self.element.tag != node.element.tag and self.element.tag != "*" \
-                or self.element.zoom != node.element.zoom \
-                or len(self.element.selectors) >= len(node.element.selectors):
-            return False
-
-        for i, sel in enumerate(self.element.selectors):
-            if sel != node.element.selectors[i]:
-                return False
-
-        return True
-        pass
+        if self.is_root():
+            return True
+        return self.element.can_adopt(node.element)
 
     def add(self, node):
-        if self.can_adopt(node):
-            if not self.children: #self has no children,
-                self.children.append(node)
-                return True
-            else:
-                for child in self.children:
-                    if child.can_adopt(node):
-                        return child.add(node) # self has children, and one of the children can adopt the new node
+        if not self.can_adopt(node):
+            return False
 
-                # none of the children could adopt the node, maybe the node can adopt the children (or some of them)
-                possible_children_for_the_node = []
-                for child in self.children:
-                    if node.can_adopt(child):
-                        possible_children_for_the_node.append(child)
+        if not self.children: #self has no children,
+            self.children.append(node)
+            node.parent = self
+            return True
+        else:
+            for child in self.children:
+                if child.can_adopt(node):
+                    return child.add(node) # self has children, and one of the children can adopt the new node
 
-                if possible_children_for_the_node: #if there are children that can be adopted by the node
-                    for child in possible_children_for_the_node:
-                        self.children.remove(child)
-                        node.add(child)
-                    self.children.append(node)
-                    return True
+            # none of the children could adopt the new node, maybe the node can adopt the children (or some of them)
+            possible_children_for_the_node = []
+            for child in self.children:
+                if node.can_adopt(child): # FIXME here the new node's parent is always None!, thus the new node is considered Root, thus, it eats up all the children of the current root node
+                    possible_children_for_the_node.append(child)
 
-        return False
+            if possible_children_for_the_node: #if there are children that can be adopted by the node
+                for child in possible_children_for_the_node:
+                    self.children.remove(child)
+                    node.add(child)
+                    child.parent = node
+            self.children.append(node)
+            node.parent = self
+            return True
+
 
 
     def __repr__(self):
-        children_repr = "".join(map(lambda x: str(x), self.children))
-        return "{}{}\n{}".format("  ", self.element, children_repr)
+        # children_repr = "".join(map(lambda x: str(x), self.children))
+        return str(self.element)
 
 if __name__ == "__main__":
     node1 = CssNode(CssElement("tag", "10", ["a", "b", "c"], None), [])

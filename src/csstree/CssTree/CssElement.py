@@ -43,7 +43,7 @@ class CssElement:
             return False
         if self.subclass != WILDCARD and self.subclass != css_element.subclass:
             return False
-        if len(self.selectors) <= len(css_element.selectors):
+        if len(self.selectors) >= len(css_element.selectors):
             return False
         if not set(self.selectors).issubset(css_element.selectors):
             return False
@@ -58,14 +58,12 @@ class CssElement:
 
 
 if __name__ == "__main__":
-    e1 = CssElement("*", "12",[], "*")
-    e2 = CssElement("*", "3", [], "*" )
-    e3 = CssElement("*", "3", ["landuse"], "*")
+    e1 = CssElement("line", 14, ["[piste:type=downhill]", "[piste:difficulty=intermediate]"], "")
+    e2 = CssElement("line", 14, ["[piste:type=downhill]"], "")
 
     print(e1.can_adopt(e1))
     print(e1.can_adopt(e2))
-    print(e2.can_adopt(e3))
-    print(e3.can_adopt(e2))
+    print(e2.can_adopt(e1))
             # class CssBlock:
 #     def __init__(self, element, styles):
 #         self.element = element
