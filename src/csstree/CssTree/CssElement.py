@@ -4,7 +4,7 @@ class CssElement:
     def __init__(self, tag, zoom, selectors, subclass):
         self.tag = tag
         self.zoom = zoom
-        self.selectors = sorted(selectors) #[]
+        self.selectors = selectors #[]
         self.subclass = subclass
 
 
@@ -34,11 +34,11 @@ class CssElement:
     def __hash__(self):
         return hash(self._my_str_repr(must_sort=True))
 
+
     def can_adopt(self, css_element):
         if self.zoom != css_element.zoom:
             return False
-
-        #my tag must be * or the same as theirs, my subclass must be * or the same as theirs, and my selectors must count 1 less than theirs and be a subset of theirs.
+        #my tag must be * or the same as theirs, my subclass must be * or the same as theirs, and my selectors must count less than theirs and be a subset of theirs.
         if self.tag != WILDCARD and self.tag != css_element.tag:
             return False
         if self.subclass != WILDCARD and self.subclass != css_element.subclass:
@@ -50,9 +50,6 @@ class CssElement:
 
         return True
 
-
-    def selectors_length(self):
-        return len(self.selectors)
 
 
 

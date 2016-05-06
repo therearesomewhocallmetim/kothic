@@ -1,7 +1,6 @@
 from __future__ import print_function
 from Preprocessor import Preprocessor
 from BlockSplitter import BlockSplitter
-from BlockSplitter import Block
 from CssTree import CssTree
 from CssTree import CssNode
 

@@ -1,8 +1,6 @@
 from __future__ import print_function
-from copy import deepcopy
 import logging
 from CssElement import CssElement
-# from CssElement import CssBlock
 
 WILDCARD = "*"
 TAGS = ["node", "line", "way", "area"]
@@ -10,57 +8,32 @@ TAGS = ["node", "line", "way", "area"]
 
 class CssTree:
     def __init__(self, min_zoom=1, max_zoom=19):
-        self.subtrees_by_zoom = {}
+        self.root_nodes_by_zoom = {}
         for i in range(min_zoom, max_zoom + 1):
-            self.subtrees_by_zoom[i] = CssSubtree()
-
+            self.root_nodes_by_zoom[i] = CssNode(None, None, root=True)
 
 
     def add(self, node):
-        self.subtrees_by_zoom[node.element.zoom].add(node)
-        # self.tags.add(node.element.tag)
-        # self.subclasses.add(node.element.subclass)
+        self.root_nodes_by_zoom[node.element.zoom].add(node)
 
 
     def finilize_tree(self):
         for tag in TAGS:
-            for zoom, subtree in self.subtrees_by_zoom.iteritems():
-                added = subtree.root.add(CssNode(CssElement(tag, zoom, [], None), []))
-                logging.info("Just added empty element: {}, {}".format(tag, added))
+            for zoom, subtree in self.root_nodes_by_zoom.iteritems():
+                subtree.add(CssNode(CssElement(tag, zoom, [], None), []))
+        self.trickle_down_styles()
 
 
-        #lets recursively traverse the tree and copy all the styles from higher elements to lower ones
-        for zoom, subtree in self.subtrees_by_zoom.iteritems():
-            subtree.tricle_down_styles()
+    def trickle_down_styles(self):
+        for zoom, subtree in self.root_nodes_by_zoom.iteritems():
+            subtree.trickle_down_styles()
 
 
     def write(self):
         with open("../../out/inflated.mapcss", "w") as out_file:
-            for zoom, subtree in self.subtrees_by_zoom.iteritems():
+            for zoom, subtree in self.root_nodes_by_zoom.iteritems():
                 out_file.write("   /* === ZOOM {} === */\n\n".format(zoom))
                 subtree.write(out_file)
-
-
-class CssSubtree:
-    def __init__(self):
-        self.root = CssNode(None, None, root=True)
-        pass
-
-
-    def write(self, out_file):
-        self.root.write(out_file)
-
-
-    def add(self, node):
-        return self.root.add(node)
-
-
-    def __repr__(self):
-        return str(self.root.element)
-
-
-    def tricle_down_styles(self):
-        self.root.tricle_down_styles()
 
 
 class CssNode:
@@ -77,7 +50,7 @@ class CssNode:
             out_file.write("{} {{\n".format(self.element))
             if self.styles:
                 for attr, val in self.styles.iteritems():
-                    #out_file.write("    {}: {}; /* {} */\n".format(attr, val.string, val.source))
+                    # out_file.write("    {}: {}; /* {} */\n".format(attr, val.string, val.source)) #our old Kothic doesn't like comments on the same line as an attribute
                     out_file.write("    {}: {};\n".format(attr, val.string))
             out_file.write("}\n\n")
 
@@ -124,10 +97,10 @@ class CssNode:
             return True
 
 
-    def tricle_down_styles(self):
+    def trickle_down_styles(self):
         for child in self.children:
             child.inherit_styles(self.styles)
-            child.tricle_down_styles()
+            child.trickle_down_styles()
 
 
     def inherit_styles(self, styles):
@@ -138,7 +111,6 @@ class CssNode:
                 logging.info("Rewriting a value from a higher element, {}: {} -> {}".format(attr, value.string, self.styles[attr].string))
                 continue
             self.styles[attr] = value
-
 
 
     def __repr__(self):
@@ -152,7 +124,7 @@ if __name__ == "__main__":
 
 # node|z19
 
-    css_subtree = CssSubtree()
+    css_subtree = CssNode(None, None, root=True)
     print(css_subtree.add(node2))
     print(css_subtree.add(node1))
     print(css_subtree.add(node3))
