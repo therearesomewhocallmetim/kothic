@@ -25,6 +25,9 @@ if __name__ == "__main__":
             css_node = CssNode(block, block_splitter.blocks_by_zoom_level[zoom][block])
             css_tree.add(css_node)
 
+    css_tree.finilize_tree()
+    css_tree.write()
+
 
 
 
