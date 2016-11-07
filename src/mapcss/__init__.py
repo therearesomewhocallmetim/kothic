@@ -25,44 +25,44 @@ from Condition import Condition
 NEEDED_KEYS = set(["width", "casing-width", "fill-color", "fill-image", "icon-image", "text", "extrude",
                    "background-image", "background-color", "pattern-image", "shield-text", "symbol-shape"])
 
-WHITESPACE = re.compile(r'^ \s+ ', re.S | re.X)
+WHITESPACE = re.compile(r'\s+ ', re.S | re.X)
 
-COMMENT = re.compile(r'^ \/\* .*? \*\/ \s* ', re.S | re.X)
-CLASS = re.compile(r'^ ([\.:]:?[*\w]+) \s* ', re.S | re.X)
-#NOT_CLASS = re.compile(r'^ !([\.:]\w+) \s* ', re.S | re.X)
-ZOOM = re.compile(r'^ \| \s* z([\d\-]+) \s* ', re.I | re.S | re.X)
-GROUP = re.compile(r'^ , \s* ', re.I | re.S | re.X)
-CONDITION = re.compile(r'^ \[(.+?)\] \s* ', re.S | re.X)
-OBJECT = re.compile(r'^ (\*|[\w]+) \s* ', re.S | re.X)
-DECLARATION = re.compile(r'^ \{(.*?)\} \s* ', re.S | re.X)
-IMPORT = re.compile(r'^@import\("(.+?)"\); \s* ', re.S | re.X)
-VARIABLE_SET = re.compile(r'^@([a-z][\w\d]*) \s* : \s* (.+?) \s* ; \s* ', re.S | re.X | re.I)
-UNKNOWN = re.compile(r'^ (\S+) \s* ', re.S | re.X)
+COMMENT = re.compile(r'\/\* .*? \*\/ \s* ', re.S | re.X)
+CLASS = re.compile(r'([\.:]:?[*\w]+) \s* ', re.S | re.X)
+#NOT_CLASS = re.compile(r'!([\.:]\w+) \s* ', re.S | re.X)
+ZOOM = re.compile(r'\| \s* z([\d\-]+) \s* ', re.I | re.S | re.X)
+GROUP = re.compile(r', \s* ', re.I | re.S | re.X)
+CONDITION = re.compile(r'\[(.+?)\] \s* ', re.S | re.X)
+OBJECT = re.compile(r'(\*|[\w]+) \s* ', re.S | re.X)
+DECLARATION = re.compile(r'\{(.*?)\} \s* ', re.S | re.X)
+IMPORT = re.compile(r'@import\("(.+?)"\); \s* ', re.S | re.X)
+VARIABLE_SET = re.compile(r'@([a-z][\w\d]*) \s* : \s* (.+?) \s* ; \s* ', re.S | re.X | re.I)
+UNKNOWN = re.compile(r'(\S+) \s* ', re.S | re.X)
 
-ZOOM_MINMAX = re.compile(r'^ (\d+)\-(\d+) $', re.S | re.X)
-ZOOM_MIN = re.compile(r'^ (\d+)\-      $', re.S | re.X)
-ZOOM_MAX = re.compile(r'^      \-(\d+) $', re.S | re.X)
-ZOOM_SINGLE = re.compile(r'^        (\d+) $', re.S | re.X)
+ZOOM_MINMAX = re.compile(r'(\d+)\-(\d+) $', re.S | re.X)
+ZOOM_MIN = re.compile(r'(\d+)\-      $', re.S | re.X)
+ZOOM_MAX = re.compile(r'     \-(\d+) $', re.S | re.X)
+ZOOM_SINGLE = re.compile(r'       (\d+) $', re.S | re.X)
 
-CONDITION_TRUE = re.compile(r'^ \s* ([:\w]+) \s* [?] \s*  $', re.I | re.S | re.X)
-CONDITION_invTRUE = re.compile(r'^ \s* [!] \s* ([:\w]+) \s* [?] \s*  $', re.I | re.S | re.X)
-CONDITION_FALSE = re.compile(r'^ \s* ([:\w]+) \s* = \s* no  \s*  $', re.I | re.S | re.X)
-CONDITION_SET = re.compile(r'^ \s* ([-:\w]+) \s* $', re.S | re.X)
-CONDITION_UNSET = re.compile(r'^ \s* !([:\w]+) \s* $', re.S | re.X)
-CONDITION_EQ = re.compile(r'^ \s* ([:\w]+) \s* =  \s* (.+) \s* $', re.S | re.X)
-CONDITION_NE = re.compile(r'^ \s* ([:\w]+) \s* != \s* (.+) \s* $', re.S | re.X)
-CONDITION_GT = re.compile(r'^ \s* ([:\w]+) \s* >  \s* (.+) \s* $', re.S | re.X)
-CONDITION_GE = re.compile(r'^ \s* ([:\w]+) \s* >= \s* (.+) \s* $', re.S | re.X)
-CONDITION_LT = re.compile(r'^ \s* ([:\w]+) \s* <  \s* (.+) \s* $', re.S | re.X)
-CONDITION_LE = re.compile(r'^ \s* ([:\w]+) \s* <= \s* (.+) \s* $', re.S | re.X)
-CONDITION_REGEX = re.compile(r'^ \s* ([:\w]+) \s* =~\/ \s* (.+) \/ \s* $', re.S | re.X)
+CONDITION_TRUE = re.compile(r'\s* ([:\w]+) \s* [?] \s*  $', re.I | re.S | re.X)
+CONDITION_invTRUE = re.compile(r'\s* [!] \s* ([:\w]+) \s* [?] \s*  $', re.I | re.S | re.X)
+CONDITION_FALSE = re.compile(r'\s* ([:\w]+) \s* = \s* no  \s*  $', re.I | re.S | re.X)
+CONDITION_SET = re.compile(r'\s* ([-:\w]+) \s* $', re.S | re.X)
+CONDITION_UNSET = re.compile(r'\s* !([:\w]+) \s* $', re.S | re.X)
+CONDITION_EQ = re.compile(r'\s* ([:\w]+) \s* =  \s* (.+) \s* $', re.S | re.X)
+CONDITION_NE = re.compile(r'\s* ([:\w]+) \s* != \s* (.+) \s* $', re.S | re.X)
+CONDITION_GT = re.compile(r'\s* ([:\w]+) \s* >  \s* (.+) \s* $', re.S | re.X)
+CONDITION_GE = re.compile(r'\s* ([:\w]+) \s* >= \s* (.+) \s* $', re.S | re.X)
+CONDITION_LT = re.compile(r'\s* ([:\w]+) \s* <  \s* (.+) \s* $', re.S | re.X)
+CONDITION_LE = re.compile(r'\s* ([:\w]+) \s* <= \s* (.+) \s* $', re.S | re.X)
+CONDITION_REGEX = re.compile(r'\s* ([:\w]+) \s* =~\/ \s* (.+) \/ \s* $', re.S | re.X)
 
-ASSIGNMENT_EVAL = re.compile(r"^ \s* (\S+) \s* \:      \s* eval \s* \( \s* ' (.+?) ' \s* \) \s* $", re.I | re.S | re.X)
-ASSIGNMENT = re.compile(r'^ \s* (\S+) \s* \:      \s*          (.+?) \s*                   $', re.S | re.X)
-SET_TAG_EVAL = re.compile(r"^ \s* set \s+(\S+)\s* = \s* eval \s* \( \s* ' (.+?) ' \s* \) \s* $", re.I | re.S | re.X)
-SET_TAG = re.compile(r'^ \s* set \s+(\S+)\s* = \s*          (.+?) \s*                   $', re.I | re.S | re.X)
-SET_TAG_TRUE = re.compile(r'^ \s* set \s+(\S+)\s* $', re.I | re.S | re.X)
-EXIT = re.compile(r'^ \s* exit \s* $', re.I | re.S | re.X)
+ASSIGNMENT_EVAL = re.compile(r"\s* (\S+) \s* \:      \s* eval \s* \( \s* ' (.+?) ' \s* \) \s* $", re.I | re.S | re.X)
+ASSIGNMENT = re.compile(r'\s* (\S+) \s* \:      \s*          (.+?) \s*                   $', re.S | re.X)
+SET_TAG_EVAL = re.compile(r"\s* set \s+(\S+)\s* = \s* eval \s* \( \s* ' (.+?) ' \s* \) \s* $", re.I | re.S | re.X)
+SET_TAG = re.compile(r'\s* set \s+(\S+)\s* = \s*          (.+?) \s*                   $', re.I | re.S | re.X)
+SET_TAG_TRUE = re.compile(r'\s* set \s+(\S+)\s* $', re.I | re.S | re.X)
+EXIT = re.compile(r'\s* exit \s* $', re.I | re.S | re.X)
 
 oNONE = 0
 oZOOM = 2
@@ -219,7 +219,7 @@ class MapCSS():
                             sc = StyleChooser(self.scalepair)
                         cond = CLASS.match(css).groups()[0]
                         log.debug("class found: %s" % (cond))
-                        css = CLASS.sub("", css)
+                        css = CLASS.sub("", css, 1)
                         sc.addCondition(Condition('eq', ("::class", cond)))
                         previous = oCONDITION
 
@@ -230,7 +230,7 @@ class MapCSS():
                             #sc = StyleChooser(self.scalepair)
                         #cond = NOT_CLASS.match(css).groups()[0]
                         #log.debug("not_class found: %s" % (cond))
-                        #css = NOT_CLASS.sub("", css)
+                        #css = NOT_CLASS.sub("", css, 1)
                         #sc.addCondition(Condition('ne', ("::class", cond)))
                         #previous = oCONDITION
 
@@ -240,13 +240,13 @@ class MapCSS():
                             sc.newObject()
                         cond = ZOOM.match(css).groups()[0]
                         log.debug("zoom found: %s" % (cond))
-                        css = ZOOM.sub("", css)
+                        css = ZOOM.sub("", css, 1)
                         sc.addZoom(self.parseZoom(cond))
                         previous = oZOOM
 
                     # Grouping - just a comma
                     elif GROUP.match(css):
-                        css = GROUP.sub("", css)
+                        css = GROUP.sub("", css, 1)
                         sc.newGroup()
                         previous = oGROUP
 
@@ -267,7 +267,7 @@ class MapCSS():
                             sc.addRuntimeCondition(c)
                         else:
                             raise Exception("Unknown tag '" + tag + "' in condition " + cond)
-                        css = CONDITION.sub("", css)
+                        css = CONDITION.sub("", css, 1)
                         previous = oCONDITION
 
                     # Object - way, node, relation
@@ -277,7 +277,7 @@ class MapCSS():
                             sc = StyleChooser(self.scalepair)
                         obj = OBJECT.match(css).groups()[0]
                         log.debug("object found: %s" % (obj))
-                        css = OBJECT.sub("", css)
+                        css = OBJECT.sub("", css, 1)
                         sc.newObject(obj)
                         previous = oOBJECT
 
@@ -288,20 +288,20 @@ class MapCSS():
                         decl = DECLARATION.match(css).groups()[0]
                         log.debug("declaration found: %s" % (decl))
                         sc.addStyles(self.subst_variables(parseDeclaration(decl)))
-                        css = DECLARATION.sub("", css)
+                        css = DECLARATION.sub("", css, 1)
                         previous = oDECLARATION
 
                     # CSS comment
                     elif COMMENT.match(css):
                         log.debug("comment found")
-                        css = COMMENT.sub("", css)
+                        css = COMMENT.sub("", css, 1)
 
                     # @import("filename.css");
                     elif IMPORT.match(css):
                         log.debug("import found")
                         import_filename = os.path.join(basepath, IMPORT.match(css).groups()[0])
                         try:
-                            css = IMPORT.sub("", css)
+                            css = IMPORT.sub("", css, 1)
                             import_text = open(import_filename, "r").read()
                             stck[-1][1] = css # store remained part
                             stck.append([import_filename, import_text, import_text])
@@ -315,7 +315,7 @@ class MapCSS():
                         name = VARIABLE_SET.match(css).groups()[0]
                         log.debug("variable set found: %s" % name)
                         self.variables[name] = VARIABLE_SET.match(css).groups()[1]
-                        css = VARIABLE_SET.sub("", css)
+                        css = VARIABLE_SET.sub("", css, 1)
                         previous = oVARIABLE_SET
 
                     # Unknown pattern
