@@ -87,8 +87,11 @@ class StyleChooser:
         self.selzooms = None
         self.compatible_types = set()
         self.has_evals = False
+        self.cached_tags = None
 
     def extract_tags(self):
+        if self.cached_tags is not None:
+            return self.cached_tags
         a = set()
         for r in self.ruleChains:
             a.update(r.extract_tags())
@@ -104,6 +107,7 @@ class StyleChooser:
         if "*" in a or len(a) == 0:
             a.clear()
             a.add("*")
+        self.cached_tags = a
         return a
 
     def get_runtime_conditions(self, ftype, tags, zoom):
