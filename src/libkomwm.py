@@ -3,9 +3,14 @@ from optparse import OptionParser
 import os
 import csv
 import sys
+import itertools
+from multiprocessing import Pool
 import mapcss.webcolors
 whatever_to_hex = mapcss.webcolors.webcolors.whatever_to_hex
 whatever_to_cairo = mapcss.webcolors.webcolors.whatever_to_cairo
+
+PROFILE = False
+MULTIPROCESSING = True
 
 # If path to the protobuf EGG is specified then apply it before import drules_struct_pb2
 PROTOBUF_EGG_PATH = os.environ.get("PROTOBUF_EGG_PATH")
@@ -49,6 +54,55 @@ def mwm_encode_image(st, prefix='icon', bgprefix='symbol'):
     # strip last ".svg"
     handle = st.get(prefix + "image")[:-4]
     return handle, handle
+
+
+def query_style(args):
+    cl, cltags, minzoom, maxzoom = args
+    clname = cl if cl.find('-') == -1 else cl[:cl.find('-')]
+
+    cltags["name"] = "name"
+    cltags["addr:housenumber"] = "addr:housenumber"
+    cltags["addr:housename"] = "addr:housename"
+    cltags["ref"] = "ref"
+    cltags["int_name"] = "int_name"
+    cltags["addr:flats"] = "addr:flats"
+
+    results = []
+    for zoom in xrange(minzoom, maxzoom + 1):
+        runtime_conditions_arr = []
+
+        # Get runtime conditions which are used for class 'cl' on zoom 'zoom'
+        if "area" not in cltags:
+            runtime_conditions_arr.extend(style.get_runtime_rules(clname, "line", cltags, zoom))
+        runtime_conditions_arr.extend(style.get_runtime_rules(clname, "area", cltags, zoom))
+        if "area" not in cltags:
+            runtime_conditions_arr.extend(style.get_runtime_rules(clname, "node", cltags, zoom))
+
+        # If there is no any runtime conditions, do not filter style by runtime conditions
+        if len(runtime_conditions_arr) == 0:
+            runtime_conditions_arr.append(None)
+
+        for runtime_conditions in runtime_conditions_arr:
+            has_icons_for_areas = False
+            zstyle = {}
+
+            # Get style for class 'cl' on zoom 'zoom' with corresponding runtime conditions
+            if "area" not in cltags:
+                linestyle = style.get_style_dict(clname, "line", cltags, zoom, olddict=zstyle, filter_by_runtime_conditions=runtime_conditions)
+                zstyle = linestyle
+            areastyle = style.get_style_dict(clname, "area", cltags, zoom, olddict=zstyle, filter_by_runtime_conditions=runtime_conditions)
+            for st in areastyle.values():
+                if "icon-image" in st or 'symbol-shape' in st or 'symbol-image' in st:
+                    has_icons_for_areas = True
+                    break
+            zstyle = areastyle
+            if "area" not in cltags:
+                nodestyle = style.get_style_dict(clname, "node", cltags, zoom, olddict=zstyle, filter_by_runtime_conditions=runtime_conditions)
+                zstyle = nodestyle
+
+            results.append((cl, zoom, has_icons_for_areas, runtime_conditions, zstyle.values()))
+    return results
+
 
 def komap_mapswithme(options):
     ddir = os.path.dirname(options.outfile)
@@ -157,6 +211,7 @@ def komap_mapswithme(options):
     mapcss_dynamic_tags = set([line.rstrip() for line in open(os.path.join(ddir, 'mapcss-dynamic.txt'))])
 
     # Parse style mapcss
+    global style
     style = MapCSS(options.minzoom, options.maxzoom + 1)
     style.parse(filename = options.filename, static_tags = mapcss_static_tags, dynamic_tags = mapcss_dynamic_tags)
 
@@ -181,59 +236,28 @@ def komap_mapswithme(options):
     # Build drules tree
 
     drules = ContainerProto()
+    dr_cont = None
+    if MULTIPROCESSING:
+        pool = Pool()
+        imapfunc = pool.imap
+    else:
+        imapfunc = itertools.imap
 
-    for cl in class_order:
+    for results in imapfunc(query_style, ((cl, classificator[cl], options.minzoom, options.maxzoom) for cl in class_order)):
+        for result in results:
+                cl, zoom, has_icons_for_areas, runtime_conditions, zstyle = result
 
-        clname = cl if cl.find('-') == -1 else cl[:cl.find('-')]
+                if dr_cont is not None and dr_cont.name != cl:
+                    if dr_cont.element:
+                        drules.cont.extend([dr_cont])
+                    visibility["world|" + class_tree[dr_cont.name] + "|"] = "".join(visstring)
+                    dr_cont = None
 
-        cltags = classificator[cl]
-        cltags["name"] = "name"
-        cltags["addr:housenumber"] = "addr:housenumber"
-        cltags["addr:housename"] = "addr:housename"
-        cltags["ref"] = "ref"
-        cltags["int_name"] = "int_name"
-        cltags["addr:flats"] = "addr:flats"
+                if dr_cont is None:
+                    dr_cont = ClassifElementProto()
+                    dr_cont.name = cl
 
-        dr_cont = ClassifElementProto()
-        dr_cont.name = cl
-
-        visstring = ["0"] * (options.maxzoom - options.minzoom + 1)
-
-        for zoom in xrange(options.minzoom, options.maxzoom + 1):
-
-            runtime_conditions_arr = []
-
-            # Get runtime conditions which are used for class 'cl' on zoom 'zoom'
-            if "area" not in cltags:
-                runtime_conditions_arr.extend( style.get_runtime_rules(clname, "line", cltags, zoom) )
-            runtime_conditions_arr.extend( style.get_runtime_rules(clname, "area", cltags, zoom) )
-            if "area" not in cltags:
-                runtime_conditions_arr.extend( style.get_runtime_rules(clname, "node", cltags, zoom) )
-
-            # If there is no any runtime conditions, do not filter style by runtime conditions
-            if len(runtime_conditions_arr) == 0:
-                runtime_conditions_arr.append(None)
-
-            for runtime_conditions in runtime_conditions_arr:
-
-                has_icons_for_areas = False
-                zstyle = {}
-
-                # Get style for class 'cl' on zoom 'zoom' with corresponding runtime conditions
-                if "area" not in cltags:
-                    linestyle = style.get_style_dict(clname, "line", cltags, zoom, olddict=zstyle, filter_by_runtime_conditions=runtime_conditions)
-                    zstyle = linestyle
-                areastyle = style.get_style_dict(clname, "area", cltags, zoom, olddict=zstyle, filter_by_runtime_conditions=runtime_conditions)
-                for st in areastyle.values():
-                    if "icon-image" in st or 'symbol-shape' in st or 'symbol-image' in st:
-                        has_icons_for_areas = True
-                        break
-                zstyle = areastyle
-                if "area" not in cltags:
-                    nodestyle = style.get_style_dict(clname, "node", cltags, zoom, olddict=zstyle, filter_by_runtime_conditions=runtime_conditions)
-                    zstyle = nodestyle
-
-                zstyle = zstyle.values()
+                    visstring = ["0"] * (options.maxzoom - options.minzoom + 1)
 
                 if len(zstyle) == 0:
                     continue
@@ -426,6 +450,7 @@ def komap_mapswithme(options):
 
                 dr_cont.element.extend([dr_element])
 
+    if dr_cont is not None:
         if dr_cont.element:
             drules.cont.extend([dr_cont])
 
@@ -493,9 +518,8 @@ def komap_mapswithme(options):
         patterns_file.write("%s\n" % (' '.join(str(elem) for elem in p)))
     patterns_file.close()
 
-# Main
 
-try:
+def main():
     parser = OptionParser()
     parser.add_option("-s", "--stylesheet", dest="filename",
                       help="read MapCSS stylesheet from FILE", metavar="FILE")
@@ -518,8 +542,12 @@ try:
 
     komap_mapswithme(options)
 
-    exit(0)
-
-except Exception as e:
-    print >> sys.stderr, "Error\n" + str(e)
-    exit(-1)
+if __name__ == '__main__':
+    if PROFILE:
+        import cProfile
+        cProfile.run('main()', 'profile.tmp')
+        import pstats
+        p = pstats.Stats('profile.tmp')
+        p.sort_stats('cumulative').print_stats(10)
+    else:
+        main()
