@@ -156,6 +156,7 @@ def komap_mapswithme(options):
     # highway|unsurfaced|disused;[highway=unsurfaced][disused?];x;name;int_name;838;highway|unclassified
 
     cnt = 1
+    unique_types_check = set()
     for row in csv.reader(open(os.path.join(ddir, 'mapcss-mapping.csv')), delimiter=';'):
         if len(row) <= 1:
             # Allow for empty lines and comments that do not contain ';' symbol
@@ -176,6 +177,8 @@ def komap_mapswithme(options):
         cnt += 1
 
         cl = row[0].replace("|", "-")
+        if cl in unique_types_check and row[2] != 'x':
+            raise Exception('Duplicate type: {0}'.format(row[0]))
         pairs = [i.strip(']').split("=") for i in row[1].split(',')[0].split('[')]
         kv = {}
         for i in pairs:
@@ -190,6 +193,7 @@ def komap_mapswithme(options):
         classificator[cl] = kv
         if row[2] != "x":
             class_order.append(cl)
+            unique_types_check.add(cl)
             print >> types_file, row[0]
         else:
             # compatibility mode
