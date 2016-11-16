@@ -105,7 +105,10 @@ def query_style(args):
 
 
 def komap_mapswithme(options):
-    ddir = os.path.dirname(options.outfile)
+    if options.data and os.path.isdir(options.data):
+        ddir = options.data
+    else:
+        ddir = os.path.dirname(options.outfile)
 
     classificator = {}
     class_order = []
@@ -535,6 +538,8 @@ def main():
                       help="output filename", metavar="FILE")
     parser.add_option("-x", "--txt", dest="txt", action="store_true",
                       help="create a text file for output", default=False)
+    parser.add_option("-d", "--data-path", dest="data",
+                      help="path to mapcss-mapping.csv and other files", metavar="PATH")
 
     (options, args) = parser.parse_args()
 
