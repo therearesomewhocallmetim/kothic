@@ -363,9 +363,12 @@ def komap_mapswithme(options):
                             dr_element.lines.extend([dr_line])
                         if st.get('shield-font-size'):
                             dr_element.shield.height = int(st.get('shield-font-size', 10))
-                            dr_element.shield.color = mwm_encode_color(colors, st, "shield-text")
+                            dr_element.shield.text_color = mwm_encode_color(colors, st, "shield-text")
                             if st.get('shield-text-halo-radius', 0) != 0:
-                                dr_element.shield.stroke_color = mwm_encode_color(colors, st, "shield-text-halo", "white")
+                                dr_element.shield.text_stroke_color = mwm_encode_color(colors, st, "shield-text-halo", "white")
+                            dr_element.shield.color = mwm_encode_color(colors, st, "shield")
+                            if st.get('shield-outline-radius', 0) != 0:
+                                dr_element.shield.stroke_color = mwm_encode_color(colors, st, "shield-outline", "white")
                             if '-x-me-shield-priority' in st:
                                 dr_element.shield.priority = int(st.get('-x-me-shield-priority'))
                             else:
