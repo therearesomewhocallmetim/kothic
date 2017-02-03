@@ -230,6 +230,16 @@ def komap_mapswithme(options):
     style.restore_choosers_order("area")
     style.restore_choosers_order("node")
 
+    # Get colors section from style
+    style_colors = {}
+    raw_style_colors = style.get_colors()
+    if raw_style_colors is not None:
+        unique_style_colors = set()
+        for k in raw_style_colors.keys():
+            unique_style_colors.add(k.split("-")[0])
+        for k in unique_style_colors:
+            style_colors[k] = mwm_encode_color(colors, raw_style_colors, k)
+
     visibility = {}
 
     bgpos = 0
@@ -246,6 +256,13 @@ def komap_mapswithme(options):
         imapfunc = pool.imap
     else:
         imapfunc = itertools.imap
+
+    if style_colors:
+        for k, v in style_colors.iteritems():
+            color_proto = ColorElementProto()
+            color_proto.name = k
+            color_proto.color = v
+            drules.colors.colors.extend([color_proto])
 
     for results in imapfunc(query_style, ((cl, classificator[cl], options.minzoom, options.maxzoom) for cl in class_order)):
         for result in results:
