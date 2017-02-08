@@ -164,6 +164,12 @@ class MapCSS():
         style = st
         return style
 
+    def get_colors(self):
+        colors = self.choosers_by_type.get("colors")
+        if colors is not None:
+            return colors[0].styles[0]
+        return None
+
     def get_style_dict(self, clname, type, tags={}, zoom=0, xscale=1, zscale=.5, olddict={}, filter_by_runtime_conditions=None):
         """
         Kothic styling API
