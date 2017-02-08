@@ -236,7 +236,7 @@ def komap_mapswithme(options):
     if raw_style_colors is not None:
         unique_style_colors = set()
         for k in raw_style_colors.keys():
-            unique_style_colors.add(k.split("-")[0])
+            unique_style_colors.add(k[:k.rindex('-')])
         for k in unique_style_colors:
             style_colors[k] = mwm_encode_color(colors, raw_style_colors, k)
 
