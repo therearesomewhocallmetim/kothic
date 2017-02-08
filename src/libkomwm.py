@@ -264,8 +264,8 @@ def komap_mapswithme(options):
         for k, v in style_colors.iteritems():
             color_proto = ColorElementProto()
             color_proto.name = k
-            color_proto.color = v
-            drules.colors.colors.extend([color_proto])
+            color_proto.value = v
+            drules.colors.color.extend([color_proto])
 
     for results in imapfunc(query_style, ((cl, classificator[cl], options.minzoom, options.maxzoom) for cl in class_order)):
         for result in results:
