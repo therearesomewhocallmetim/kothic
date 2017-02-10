@@ -269,6 +269,8 @@ def komap_mapswithme(options):
             color_proto.y = 0
             drules.colors.value.extend([color_proto])
 
+    all_draw_elements = set()
+
     for results in imapfunc(query_style, ((cl, classificator[cl], options.minzoom, options.maxzoom) for cl in class_order)):
         for result in results:
                 cl, zoom, has_icons_for_areas, runtime_conditions, zstyle = result
@@ -477,7 +479,12 @@ def komap_mapswithme(options):
                                 dr_element.area.priority = priority
                             has_fills = False
 
-                dr_cont.element.extend([dr_element])
+                str_dr_element = dr_cont.name + "/" + str(dr_element)
+                if str_dr_element not in all_draw_elements:
+                    all_draw_elements.add(str_dr_element)
+                    dr_cont.element.extend([dr_element])
+                else:
+                    print("Prevented from adding a duplicate ")
 
     if dr_cont is not None:
         if dr_cont.element:
