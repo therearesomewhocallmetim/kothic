@@ -271,6 +271,7 @@ def komap_mapswithme(options):
 
     all_draw_elements = set()
 
+    total_duplicates = 0
     for results in imapfunc(query_style, ((cl, classificator[cl], options.minzoom, options.maxzoom) for cl in class_order)):
         for result in results:
                 cl, zoom, has_icons_for_areas, runtime_conditions, zstyle = result
@@ -484,7 +485,9 @@ def komap_mapswithme(options):
                     all_draw_elements.add(str_dr_element)
                     dr_cont.element.extend([dr_element])
                 else:
-                    print("Prevented from adding a duplicate ")
+                    total_duplicates += 1
+    print("Total number of prevented duplicates is: {}".format(total_duplicates))
+
 
     if dr_cont is not None:
         if dr_cont.element:
